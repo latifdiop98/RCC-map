@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RCC — Carte des sites</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+  :root {
+    --bg: #f5f1ea;
+    --ink: #1a1a1a;
+    --muted: #6b6b6b;
+    --line: #d9d3c7;
+    --accent: #c8553d;
+    --accent-soft: #e8d5cf;
+    --hq: #2d5d8a;
+    --hq-soft: #cbdaea;
+    --card: #ffffff;
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .app {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    grid-template-rows: auto 1fr;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  header {
+    grid-column: 1 / -1;
+    padding: 14px 24px;
+    background: var(--ink);
+    color: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header h1 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  header .meta {
+    font-size: 12px;
+    color: rgba(245, 241, 234, 0.6);
+    letter-spacing: 0.3px;
+  }
+
+  #map {
+    height: 100%;
+    width: 100%;
+    background: var(--bg);
+  }
+
+  .panel {
+    background: var(--card);
+    border-left: 1px solid var(--line);
+    overflow-y: auto;
+    padding: 0;
+  }
+
+  .panel-empty {
+    padding: 32px 24px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .panel-empty strong {
+    display: block;
+    color: var(--ink);
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 12px;
+    letter-spacing: 0.2px;
+  }
+
+  .legend {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 13px;
+  }
+
+  .legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .legend-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid white;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+    flex-shrink: 0;
+  }
+
+  .legend-dot.site { background: var(--accent); }
+  .legend-dot.office { background: var(--hq); }
+
+  .panel-header {
+    padding: 24px 24px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--card);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .panel-eyebrow {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .panel-eyebrow.office { color: var(--hq); }
+
+  .panel-title {
+    font-size: 22px;
+    font-weight: 500;
+    margin: 0 0 4px;
+    letter-spacing: -0.3px;
+  }
+
+  .panel-address {
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin: 8px 0 14px;
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-block;
+    padding: 8px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    border-radius: 4px;
+    letter-spacing: 0.3px;
+    transition: all 0.15s;
+    cursor: pointer;
+    border: none;
+    font-family: inherit;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background: #a8442f;
+  }
+
+  .btn-primary.office {
+    background: var(--hq);
+  }
+
+  .btn-primary.office:hover {
+    background: #234a6f;
+  }
+
+  .btn-secondary {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .btn-secondary:hover {
+    background: #d9bdb5;
+  }
+
+  .btn-secondary.office {
+    background: var(--hq-soft);
+    color: var(--hq);
+  }
+
+  .btn-secondary.office:hover {
+    background: #b3c7dd;
+  }
+
+  .panel-list-title {
+    padding: 16px 24px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    background: var(--card);
+  }
+
+  .destinations {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .destinations li {
+    padding: 14px 24px;
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 4px 12px;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .destinations li:hover {
+    background: #faf7f2;
+  }
+
+  .dest-code {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 4px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.5px;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .dest-code.office {
+    color: var(--hq);
+    background: var(--hq-soft);
+  }
+
+  .dest-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .dest-time {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .dest-distance {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .rcc-marker {
+    width: 36px;
+    height: 36px;
+    background: var(--accent);
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 2px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .rcc-marker.office {
+    background: var(--hq);
+  }
+
+  .rcc-marker-inner {
+    transform: rotate(45deg);
+    color: white;
+    font-size: 9px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.3px;
+  }
+
+  .rcc-marker.active {
+    background: var(--ink);
+    width: 42px;
+    height: 42px;
+  }
+
+  .rcc-marker.active.office {
+    background: #1a3a5c;
+  }
+
+  @media (max-width: 768px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto 50vh 50vh;
+    }
+    .panel {
+      border-left: none;
+      border-top: 1px solid var(--line);
+    }
+  }
+
+  .leaflet-popup-content-wrapper {
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+  }
+  .leaflet-popup-content {
+    margin: 12px 16px;
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>RCC · Program Sites</h1>
+    <span class="meta">Click a site to see drive times</span>
+  </header>
+
+  <div id="map"></div>
+
+  <aside class="panel" id="panel">
+    <div class="panel-empty">
+      <strong>Welcome</strong>
+      Click any pin on the map to see the driving distance and time from that site to all others, sorted from closest to farthest.
+
+      <div class="legend">
+        <div class="legend-row"><span class="legend-dot office"></span> Office (HQ)</div>
+        <div class="legend-row"><span class="legend-dot site"></span> Program Sites</div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+// ==========================================================
+// DONNEES RCC
+// ==========================================================
+
+const SITES = [
+  { "code": "HQ",  "type": "office", "name": "Office (HQ)",          "address": "12400 Princeton Ave, Savage, MN 55378",            "phone": "952-467-6069", "lon": -93.34081,   "lat": 44.779726 },
+  { "code": "ARA", "type": "site",   "name": "Arabian Avenue",       "address": "114 Arabian Avenue, Shakopee, MN 55379",           "phone": "952-496-2186", "lon": -93.525431,  "lat": 44.772679 },
+  { "code": "BEA", "type": "site",   "name": "Beard Avenue",         "address": "27525 Beard Avenue, Elko, MN 55020",               "phone": "952-226-5041", "lon": -93.32689,   "lat": 44.56469 },
+  { "code": "CED", "type": "site",   "name": "Cedar Valley Road",    "address": "20310 Cedar Valley Road, Jordan, MN 55352",        "phone": "952-405-9434", "lon": -93.633629,  "lat": 44.665741 },
+  { "code": "DAR", "type": "site",   "name": "Darling Path",         "address": "15450 Darling Path, Rosemount, MN 55068",          "phone": "651-344-8953", "lon": -93.152936,  "lat": 44.72392 },
+  { "code": "DOD", "type": "site",   "name": "Dodd Road",            "address": "4625 Dodd Road, Eagan, MN 55123",                  "phone": "651-797-2234", "lon": -93.112255,  "lat": 44.81409 },
+  { "code": "GRE", "type": "site",   "name": "Greening Drive",       "address": "849 Greening Drive, Apple Valley, MN 55124",       "phone": "952-236-9020", "lon": -93.229483,  "lat": 44.726726 },
+  { "code": "HAR", "type": "site",   "name": "Harrison Street",      "address": "1234 Harrison Street, Shakopee, MN 55379",         "phone": "952-600-4422", "lon": -93.549353,  "lat": 44.784686 },
+  { "code": "HIG", "type": "site",   "name": "Highview Avenue",      "address": "17925 Highview Avenue, Lakeville, MN 55044",       "phone": "952-295-8723", "lon": -93.238228,  "lat": 44.689666 },
+  { "code": "JAM", "type": "site",   "name": "Jamaica Ave",          "address": "31125 Jamaica Ave, Northfield, MN 55057",          "phone": "507-222-0127", "lon": -93.166592,  "lat": 44.452922 },
+  { "code": "MAR", "type": "site",   "name": "Marble Lane",          "address": "2044 Marble Lane, Eagan, MN 55122",                "phone": "651-688-0032", "lon": -93.211629,  "lat": 44.799413 },
+  { "code": "MSC", "type": "site",   "name": "Marschall Road",       "address": "3240 Marschall Road, Shakopee, MN 55379",          "phone": "952-500-9861", "lon": -93.509364,  "lat": 44.801248 },
+  { "code": "MRT", "type": "site",   "name": "160th Street West",    "address": "1051 160th Street West, Shakopee, MN 55379",       "phone": "952-681-7188", "lon": -93.476438,  "lat": 44.779106 },
+  { "code": "NAT", "type": "site",   "name": "Natchez Court",        "address": "4784 Natchez Court, Savage, MN 55378",             "phone": "952-233-2089", "lon": -93.339718,  "lat": 44.745612 },
+  { "code": "ORC", "type": "site",   "name": "Orchard Dr",           "address": "15017 Orchard Dr, Burnsville, MN 55306",           "phone": "651-341-0823", "lon": -93.2937,    "lat": 44.730632 },
+  { "code": "PAU", "type": "site",   "name": "Paul St",              "address": "241 Paul St, Elko New Market, MN 55054",           "phone": "952-446-7863", "lon": -93.352551,  "lat": 44.570359 },
+  { "code": "PK2", "type": "site",   "name": "Polk Street South #2", "address": "1210 Polk Street South #2, Shakopee, MN 55379",    "phone": "952-455-5395", "lon": -93.551907,  "lat": 44.782473 },
+  { "code": "PK3", "type": "site",   "name": "Polk Street South #3", "address": "1210 Polk Street South #3, Shakopee, MN 55379",    "phone": "952-403-1478", "lon": -93.551907,  "lat": 44.782473 },
+  { "code": "RUB", "type": "site",   "name": "Ruby Lane",            "address": "1240 Ruby Lane, Shakopee, MN 55379",               "phone": "952-255-6924", "lon": -93.499681,  "lat": 44.781877 },
+  { "code": "WAG", "type": "site",   "name": "Wagon Wheel Trail",    "address": "1064 Wagon Wheel Trail, Mendota Heights, MN 55120","phone": "651-330-9230", "lon": -93.145462,  "lat": 44.874662 }
+];
+
+const DURATIONS_MIN = [[0,14,25,24,25,25,17,16,19,38,18,14,11,8,12,26,16,16,12,27],[15,0,35,15,37,38,30,6,32,51,30,7,7,19,25,32,6,6,5,32],[26,35,0,31,29,32,22,38,20,24,27,37,35,26,19,5,38,38,35,33],[26,15,30,0,44,46,37,15,33,48,41,19,18,26,33,27,15,15,16,43],[25,38,30,45,0,16,11,39,14,35,19,37,35,25,18,32,40,40,36,26],[25,39,32,46,16,0,20,40,26,45,13,38,36,24,20,33,40,40,36,13],[18,31,23,38,11,19,0,32,8,36,13,30,28,16,11,25,33,33,29,20],[18,6,38,13,40,41,33,0,34,53,33,7,10,22,27,34,1,1,7,35],[19,32,20,34,14,25,8,34,0,31,20,32,29,19,12,22,34,34,30,26],[38,52,24,49,34,44,35,53,32,0,39,51,49,39,32,26,53,53,50,46],[17,30,26,40,19,12,13,31,20,39,0,29,27,19,15,27,32,32,28,14],[16,7,38,17,38,38,31,7,32,51,31,0,6,20,25,35,8,8,5,33],[13,7,35,18,35,36,28,10,30,49,28,7,0,16,23,31,10,10,4,30],[9,19,25,26,24,24,15,21,19,38,20,19,16,0,8,22,21,21,18,26],[11,25,19,32,18,20,11,26,12,31,15,24,22,8,0,20,26,26,23,21],[27,31,6,27,31,33,24,34,21,25,29,34,31,23,21,0,34,34,31,35],[18,6,38,14,40,41,33,1,34,54,33,8,10,22,27,34,0,0,8,35],[18,6,38,14,40,41,33,1,34,54,33,8,10,22,27,34,0,0,8,35],[14,5,36,15,36,37,29,7,31,50,29,5,4,18,24,32,7,7,0,31],[25,33,32,42,26,13,20,34,26,45,13,31,30,24,20,33,34,34,30,0]];
+
+const DISTANCES_MI = [[0,9.6,19.2,20.5,14.4,16.1,9.1,10.9,11.2,31.2,7.9,8.7,7.2,3.3,5.4,17.0,11.0,11.0,8.7,19.5],[10.1,0,26.4,12.0,23.5,25.2,18.2,2.1,20.3,40.4,17.0,2.9,3.8,12.3,14.5,24.7,2.2,2.2,1.9,24.9],[19.4,24.6,0,21.0,19.3,24.6,15.6,26.9,12.8,16.3,20.6,25.7,21.1,17.0,13.9,2.2,27.0,27.0,24.7,28.0],[21.0,11.9,21.1,0,28.6,33.8,24.8,11.1,21.8,35.4,27.9,14.0,14.7,17.6,20.6,19.5,10.9,10.9,12.9,35.8],[14.3,23.8,19.4,28.4,0,8.8,4.9,25.0,6.2,20.5,9.5,22.9,21.4,11.4,8.8,20.2,25.1,25.1,22.8,15.6],[15.9,25.4,24.6,33.6,8.8,0,11.1,26.6,16.6,34.3,5.7,24.4,22.9,13.7,12.3,25.4,26.7,26.7,24.4,6.5],[10.5,20.0,15.6,24.7,4.9,10.7,0,21.3,3.3,27.7,6.8,19.1,17.6,6.8,5.0,16.4,21.4,21.4,19.1,14.2],[11.7,2.1,26.9,10.8,25.1,26.8,19.8,0,21.9,42.0,18.6,3.1,5.4,13.9,16.1,25.3,0.3,0.3,3.2,26.5],[11.1,20.6,13.0,22.0,6.2,16.3,3.3,21.9,0,19.8,9.9,19.7,18.2,8.7,5.6,13.8,22.0,22.0,19.7,19.7],[31.3,40.8,16.4,35.6,21.0,36.5,27.4,42.0,19.9,0,32.5,39.8,38.4,28.8,25.8,17.2,42.1,42.1,39.8,39.9],[7.6,17.1,20.3,28.0,8.0,5.7,6.8,18.4,12.3,32.3,0,16.2,14.7,9.4,8.0,21.1,18.5,18.5,16.2,9.1],[9.3,2.9,27.5,13.8,22.7,24.4,17.4,3.1,19.5,39.6,16.2,0,2.5,11.5,13.7,24.1,3.4,3.4,1.8,24.1],[7.7,2.8,21.0,14.9,21.1,22.8,15.8,5.3,17.9,38.0,14.6,2.5,0,8.9,11.8,19.4,5.4,5.4,1.5,22.5],[3.9,11.0,16.9,17.6,11.3,14.7,6.7,13.7,8.4,29.0,10.7,11.5,8.9,0,3.2,15.0,13.8,13.8,11.5,18.1],[5.2,14.7,13.7,20.5,9.0,12.4,4.4,15.9,5.8,25.8,8.4,13.8,11.9,3.2,0,14.5,16.1,16.1,13.8,15.9],[17.5,22.9,2.1,19.4,20.2,25.4,16.4,25.2,13.6,17.1,21.4,24.1,19.4,15.0,14.7,0,25.4,25.4,23.0,28.8],[11.8,2.2,27.0,10.6,25.2,26.9,19.9,0.3,22.1,42.1,18.7,3.4,5.5,14.0,16.2,25.4,0,0,3.5,26.6],[11.8,2.2,27.0,10.6,25.2,26.9,19.9,0.3,22.1,42.1,18.7,3.4,5.5,14.0,16.2,25.4,0,0,3.5,26.6],[9.4,1.9,24.7,12.8,22.9,24.5,17.6,3.2,19.7,39.7,16.4,1.8,1.5,10.0,13.8,23.0,3.3,3.3,0,24.2],[18.6,25.9,27.4,36.8,15.1,6.5,13.8,27.2,19.4,39.5,8.5,24.7,23.5,16.5,15.1,28.2,27.3,27.3,25.0,0]];
+
+// ==========================================================
+// FIN DES DONNEES
+// ==========================================================
+
+const map = L.map('map', { zoomControl: true }).setView([44.78, -93.45], 10);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap, © CARTO',
+  maxZoom: 19
+}).addTo(map);
+
+const markers = [];
+
+function makeIcon(site, isActive) {
+  const isOffice = site.type === 'office';
+  return L.divIcon({
+    className: '',
+    html: `<div class="rcc-marker ${isOffice ? 'office' : ''} ${isActive ? 'active' : ''}"><span class="rcc-marker-inner">${site.code}</span></div>`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 36],
+  });
+}
+
+SITES.forEach((site, i) => {
+  const marker = L.marker([site.lat, site.lon], {
+    icon: makeIcon(site, false)
+  }).addTo(map);
+
+  marker.on('click', () => selectSite(i));
+  markers.push(marker);
+});
+
+if (SITES.length > 1) {
+  const group = L.featureGroup(markers);
+  map.fitBounds(group.getBounds().pad(0.1));
+}
+
+function selectSite(index) {
+  markers.forEach((m, i) => {
+    m.setIcon(makeIcon(SITES[i], i === index));
+  });
+
+  const site = SITES[index];
+  const isOffice = site.type === 'office';
+  const durations = DURATIONS_MIN[index];
+  const distances = DISTANCES_MI[index];
+
+  const destinations = SITES
+    .map((s, i) => ({
+      index: i,
+      code: s.code,
+      type: s.type,
+      name: s.name,
+      duration: durations[i],
+      distance: distances[i],
+    }))
+    .filter(d => d.index !== index)
+    .sort((a, b) => a.duration - b.duration);
+
+  const encodedAddress = encodeURIComponent(site.address);
+  const gmapsLink = `https://www.google.com/maps/dir/?api=1&destination=${encodedAddress}`;
+  const phoneLink = site.phone ? `tel:${site.phone.replace(/-/g, '')}` : null;
+
+  const panel = document.getElementById('panel');
+  panel.innerHTML = `
+    <div class="panel-header">
+      <div class="panel-eyebrow ${isOffice ? 'office' : ''}">${isOffice ? 'Headquarters' : 'Site · ' + site.code}</div>
+      <h2 class="panel-title">${site.name}</h2>
+      <p class="panel-address">${site.address}${site.phone ? '<br>' + site.phone : ''}</p>
+      <div class="panel-actions">
+        <a href="${gmapsLink}" target="_blank" rel="noopener" class="btn btn-primary ${isOffice ? 'office' : ''}">Get directions</a>
+        ${phoneLink ? `<a href="${phoneLink}" class="btn btn-secondary ${isOffice ? 'office' : ''}">Call</a>` : ''}
+      </div>
+    </div>
+    <div class="panel-list-title">Drive times to other locations</div>
+    <ul class="destinations">
+      ${destinations.map(d => `
+        <li data-index="${d.index}">
+          <span class="dest-code ${d.type === 'office' ? 'office' : ''}">${d.code}</span>
+          <span class="dest-name">${d.name}</span>
+          <span class="dest-time">${d.duration}<span style="font-size:11px;color:var(--muted);font-weight:400;margin-left:3px;">min</span></span>
+          <span></span>
+          <span class="dest-distance">${d.distance} mi</span>
+        </li>
+      `).join('')}
+    </ul>
+  `;
+
+  panel.querySelectorAll('.destinations li').forEach(li => {
+    li.addEventListener('click', () => {
+      const idx = parseInt(li.dataset.index);
+      selectSite(idx);
+      map.setView([SITES[idx].lat, SITES[idx].lon], 12);
+    });
+  });
+}
+</script>
+
+</body>
+</html>
